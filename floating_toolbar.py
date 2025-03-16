@@ -86,30 +86,23 @@ class FloatingToolbar(QtWidgets.QWidget):
         default_config = {
             "quick_shortcuts": [
                 {
-                    "name": "VS Code Affiliate",
+                    "name": "My VS Code Project",
                     "icon": "",
-                    "exe": "C:\\Users\\giuli\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
-                    "args": ["C:\\Almatter\\afiliate"],
-                    "tooltip": "Projeto Affiliate no VS Code"
-                },
-                {
-                    "name": "Godot Projeto1",
-                    "icon": "",
-                    "exe": "C:\\Path\\To\\Godot\\Godot.exe",
-                    "args": ["--path", "C:\\Path\\To\\GodotProject1"],
-                    "tooltip": "Projeto 1 no Godot"
+                    "exe": "C:\\Users\\user\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+                    "args": ["C:\\Projects\\my_project"],
+                    "tooltip": "Projeto no VS Code"
                 }
             ],
             "categories": {
-                "VS Code": [
+                "Outros Projetos VS Code": [
                     {
                         "name": "Projeto Affiliate",
-                        "exe": "C:\\Users\\giuli\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
-                        "args": ["C:\\Almatter\\afiliate"]
+                        "exe": "C:\\Users\\user\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+                        "args": ["C:\\Path\\To\\Project1"]
                     },
                     {
                         "name": "Projeto 2",
-                        "exe": "C:\\Users\\giuli\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+                        "exe": "C:\\Users\\user\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
                         "args": ["C:\\Path\\To\\Project2"]
                     }
                 ],
@@ -123,9 +116,9 @@ class FloatingToolbar(QtWidgets.QWidget):
             },
             "settings": {
                 # Valores: bottom-center, top-center, bottom-left, bottom-right, top-left, top-right
-                "position": "bottom-center",
-                "opacity": 80,  # Porcentagem de opacidade (0-100)
-                "autostart": False  # Iniciar com o Windows
+                "position": "top-right",
+                "opacity": 20,  # Porcentagem de opacidade (0-100)
+                "autostart": True  # Iniciar com o Windows
             }
         }
 
@@ -164,31 +157,34 @@ class FloatingToolbar(QtWidgets.QWidget):
         """Aplica a posição salva nas configurações"""
         position = self.config["settings"]["position"]
         screen = QtWidgets.QDesktopWidget().screenGeometry()
+
+        # Força o redimensionamento antes de calcular a posição
+        self.adjustSize()
         size = self.geometry()
 
         # Determina as coordenadas baseadas na posição salva
         if position == "bottom-center":
             x = (screen.width() - size.width()) // 2
-            y = screen.height() - size.height() - 100
+            y = screen.height() - size.height() - 10
         elif position == "top-center":
             x = (screen.width() - size.width()) // 2
-            y = 100
+            y = 10
         elif position == "bottom-left":
             x = 100
-            y = screen.height() - size.height() - 100
+            y = screen.height() - size.height() - 10
         elif position == "bottom-right":
-            x = screen.width() - size.width() - 100
-            y = screen.height() - size.height() - 100
+            x = max(screen.width() - size.width() - 10, 0)
+            y = screen.height() - size.height() - 10
         elif position == "top-left":
-            x = 100
-            y = 100
+            x = 10
+            y = 10
         elif position == "top-right":
-            x = screen.width() - size.width() - 100
-            y = 100
+            x = max(screen.width() - size.width() - 10, 0)
+            y = 10
         else:
             # Posição padrão se a configuração for inválida
             x = (screen.width() - size.width()) // 2
-            y = screen.height() - size.height() - 100
+            y = screen.height() - size.height() - 10
 
         self.move(x, y)
 
@@ -228,8 +224,8 @@ class FloatingToolbar(QtWidgets.QWidget):
             self.toolbar_layout.addWidget(separator)
 
         # Adiciona botões de categoria
-        for category in self.config["categories"]:
-            btn = self.create_category_button(category)
+        for category_key in self.config["categories"]:
+            btn = self.create_category_button(category_key)
             self.toolbar_layout.addWidget(btn)
 
         # Adiciona os botões de controle diretamente aqui em vez de chamar add_control_buttons()
@@ -357,16 +353,23 @@ class FloatingToolbar(QtWidgets.QWidget):
 
         return btn
 
-    def create_category_button(self, category):
+    def create_category_button(self, category_key):
         """Cria um botão que abre um menu com os atalhos de uma categoria"""
-        # Obtém os dados da categoria (agora pode ser um dicionário ou uma string)
-        category_name = category
+        # Obtém os dados da categoria
+        category_data = self.config["categories"][category_key]
+
+        # Determina o nome e ícone da categoria
+        category_name = category_key
         category_icon = ""
 
-        # Verifica se a categoria é um dicionário com informações estendidas
-        if isinstance(category, dict):
-            category_name = category.get("name", "")
-            category_icon = category.get("icon", "")
+        # Verifica se a categoria é um dicionário (novo formato com metadados)
+        if isinstance(category_data, dict) and "name" in category_data:
+            category_name = category_data["name"]
+            category_icon = category_data.get("icon", "")
+            category_shortcuts = category_data.get("shortcuts", [])
+        else:
+            # Formato antigo: a chave é o nome e o valor é a lista de atalhos
+            category_shortcuts = category_data
 
         # Primeira letra como texto do botão
         btn = QtWidgets.QPushButton(category_name[0])
@@ -439,11 +442,7 @@ class FloatingToolbar(QtWidgets.QWidget):
             }
         """)
 
-        # Obtém os atalhos da categoria
-        shortcuts = self.config["categories"][category_name if isinstance(
-            category, str) else category["name"]]
-
-        for shortcut in shortcuts:
+        for shortcut in category_shortcuts:
             action = menu.addAction(shortcut["name"])
             action.triggered.connect(
                 lambda checked, e=shortcut["exe"], a=shortcut["args"]: self.launch_app(
@@ -454,8 +453,8 @@ class FloatingToolbar(QtWidgets.QWidget):
 
         # Estilo do botão para esconder a seta
         btn.setStyleSheet("""
-            QPushButton::menu-indicator { 
-                width: 0px; 
+            QPushButton::menu-indicator {
+                width: 0px;
                 image: none;
                 subcontrol-position: right center;
                 subcontrol-origin: padding;
@@ -523,17 +522,6 @@ class FloatingToolbar(QtWidgets.QWidget):
 
         super().mousePressEvent(event)
 
-    def mouseReleaseEvent(self, event):
-        """Trata o clique no ícone da barra de tarefas"""
-        if event.button() == QtCore.Qt.LeftButton:
-            self.show_menu()
-
-    def show_menu(self):
-        """Exibe o menu de atalhos"""
-        # Posição do menu - na parte superior da tela, alinhado com a janela
-        pos = self.mapToGlobal(QtCore.QPoint(0, 0))
-        self.menu.popup(pos)
-
     def mouseMoveEvent(self, event):
         """Move a toolbar ao arrastar"""
         if self.dragging and event.buttons() & QtCore.Qt.LeftButton:
@@ -590,13 +578,6 @@ class FloatingToolbar(QtWidgets.QWidget):
             self.save_config()
             # Recria todos os botões, incluindo os botões de controle
             self.create_toolbar_buttons()
-
-    def browse_icon_for_input(self, input_field):
-        """Abre diálogo para selecionar o ícone e coloca no campo informado"""
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Selecionar Ícone", "", "Imagens (*.png *.jpg *.ico);;Todos os Arquivos (*.*)")
-        if file_path:
-            input_field.setText(file_path)
 
     def close_application(self):
         """Fecha a aplicação após confirmação"""
@@ -701,10 +682,10 @@ class ConfigDialog(QtWidgets.QDialog):
         self.categories_list = QtWidgets.QListWidget()
         self.update_categories_list()
 
+        # Botões para gerenciar categorias
         cat_btn_layout = QtWidgets.QHBoxLayout()
-
         add_cat_btn = QtWidgets.QPushButton("Adicionar")
-        edit_cat_btn = QtWidgets.QPushButton("Renomear")
+        edit_cat_btn = QtWidgets.QPushButton("Editar")
         remove_cat_btn = QtWidgets.QPushButton("Remover")
 
         add_cat_btn.clicked.connect(self.add_category)
@@ -715,7 +696,7 @@ class ConfigDialog(QtWidgets.QDialog):
         cat_btn_layout.addWidget(edit_cat_btn)
         cat_btn_layout.addWidget(remove_cat_btn)
 
-        categories_layout.addWidget(QtWidgets.QLabel("Categorias:"))
+        categories_layout.addWidget(QtWidgets.QLabel("Categorias"))
         categories_layout.addWidget(self.categories_list)
         categories_layout.addLayout(cat_btn_layout)
 
@@ -751,6 +732,13 @@ class ConfigDialog(QtWidgets.QDialog):
         splitter.addWidget(shortcuts_widget)
 
         layout.addWidget(splitter)
+
+    def browse_icon_for_input(self, input_field):
+        """Abre diálogo para selecionar o ícone e coloca no campo informado"""
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Selecionar Ícone", "", "Imagens (*.png *.jpg *.ico);;Todos os Arquivos (*.*)")
+        if file_path:
+            input_field.setText(file_path)
 
     def setup_general_tab(self):
         """Configura a tab de configurações gerais"""
@@ -840,32 +828,35 @@ class ConfigDialog(QtWidgets.QDialog):
         """Aplica a posição selecionada à toolbar"""
         position_index = self.position_combo.currentIndex()
         screen = QtWidgets.QDesktopWidget().screenGeometry()
+
+        # Força o redimensionamento antes de calcular a posição
+        self.parent().adjustSize()
         toolbar_size = self.parent().size()
 
         # Define a posição e o código de posição para salvar na configuração
         if position_index == 0:  # Inferior Centro
             x = (screen.width() - toolbar_size.width()) // 2
-            y = screen.height() - toolbar_size.height() - 100
+            y = screen.height() - toolbar_size.height() - 10
             position_code = "bottom-center"
         elif position_index == 1:  # Superior Centro
             x = (screen.width() - toolbar_size.width()) // 2
-            y = 100
+            y = 10
             position_code = "top-center"
         elif position_index == 2:  # Inferior Esquerda
-            x = 100
-            y = screen.height() - toolbar_size.height() - 100
+            x = 10
+            y = screen.height() - toolbar_size.height() - 10
             position_code = "bottom-left"
         elif position_index == 3:  # Inferior Direita
-            x = screen.width() - toolbar_size.width() - 100
-            y = screen.height() - toolbar_size.height() - 100
+            x = max(screen.width() - toolbar_size.width() - 10, 0)
+            y = screen.height() - toolbar_size.height() - 10
             position_code = "bottom-right"
         elif position_index == 4:  # Superior Esquerda
-            x = 100
-            y = 100
+            x = 10
+            y = 10
             position_code = "top-left"
         else:  # Superior Direita (5)
-            x = screen.width() - toolbar_size.width() - 100
-            y = 100
+            x = max(screen.width() - toolbar_size.width() - 10, 0)
+            y = 10
             position_code = "top-right"
 
         # Move a toolbar para a nova posição
@@ -942,15 +933,39 @@ class ConfigDialog(QtWidgets.QDialog):
     def update_categories_list(self):
         """Atualiza a lista de categorias"""
         self.categories_list.clear()
-        for category in self.config["categories"]:
-            self.categories_list.addItem(category)
+        for category_key in self.config["categories"]:
+            # Se a categoria for um dicionário, usar o nome do dicionário
+            if isinstance(self.config["categories"][category_key], dict) and "name" in self.config["categories"][category_key]:
+                self.categories_list.addItem(
+                    self.config["categories"][category_key]["name"])
+            else:
+                # Caso contrário, usar a chave (formato antigo)
+                self.categories_list.addItem(category_key)
 
     def category_selected(self, current, previous):
         """Atualiza a lista de atalhos quando uma categoria é selecionada"""
         self.shortcuts_list.clear()
         if current:
-            category = current.text()
-            for shortcut in self.config["categories"][category]:
+            category_name = current.text()
+
+            # Busca a chave da categoria pelo nome exibido
+            category_key = category_name
+            for key in self.config["categories"]:
+                if (isinstance(self.config["categories"][key], dict) and
+                        self.config["categories"][key].get("name") == category_name):
+                    category_key = key
+                    break
+
+            # Obtém os atalhos da categoria
+            category_data = self.config["categories"][category_key]
+            shortcuts = []
+
+            if isinstance(category_data, dict) and "shortcuts" in category_data:
+                shortcuts = category_data["shortcuts"]
+            else:
+                shortcuts = category_data
+
+            for shortcut in shortcuts:
                 self.shortcuts_list.addItem(shortcut["name"])
 
     def add_quick_shortcut(self):
@@ -1033,7 +1048,7 @@ class ConfigDialog(QtWidgets.QDialog):
 
     def add_category(self):
         """Adiciona uma nova categoria"""
-        # Criamos um diálogo similar ao de edição
+        # Criamos um diálogo para configurar a nova categoria
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Nova Categoria")
         dialog.resize(450, 150)
@@ -1077,16 +1092,22 @@ class ConfigDialog(QtWidgets.QDialog):
                     self, 'Aviso', 'O nome da categoria não pode estar vazio.')
                 return
 
-            if name in self.config["categories"]:
-                QtWidgets.QMessageBox.warning(
-                    self, 'Aviso', 'Esta categoria já existe.')
-                return
+            # Verifica se já existe uma categoria com esse nome
+            for key in self.config["categories"]:
+                category_name = key
+                if isinstance(self.config["categories"][key], dict) and "name" in self.config["categories"][key]:
+                    category_name = self.config["categories"][key]["name"]
 
-            # Criamos a categoria no novo formato (com suporte a ícones)
+                if category_name == name:
+                    QtWidgets.QMessageBox.warning(
+                        self, 'Aviso', 'Esta categoria já existe.')
+                    return
+
+            # Cria a categoria no formato novo com ícone
             self.config["categories"][name] = {
                 "name": name,
                 "icon": icon_path,
-                "shortcuts": []  # Lista vazia de atalhos
+                "shortcuts": []
             }
 
             self.update_categories_list()
@@ -1098,14 +1119,34 @@ class ConfigDialog(QtWidgets.QDialog):
                 self.categories_list.setCurrentItem(items[0])
 
     def edit_category(self):
-        """Renomeia uma categoria existente e permite configurar um ícone"""
+        """Edita uma categoria existente (renomeia e configura ícone)"""
         current_item = self.categories_list.currentItem()
         if current_item:
             old_name = current_item.text()
 
-            # Criamos um diálogo para configurar a categoria
+            # Encontra a chave da categoria pelo nome exibido
+            category_key = None
+            for key in self.config["categories"]:
+                category_name = key
+                if isinstance(self.config["categories"][key], dict) and "name" in self.config["categories"][key]:
+                    category_name = self.config["categories"][key]["name"]
+
+                if category_name == old_name:
+                    category_key = key
+                    break
+
+            if not category_key:
+                return
+
+            # Recupera os dados da categoria atual
+            category_data = self.config["categories"][category_key]
+            current_icon = ""
+            if isinstance(category_data, dict) and "icon" in category_data:
+                current_icon = category_data["icon"]
+
+            # Cria um diálogo para editar a categoria
             dialog = QtWidgets.QDialog(self)
-            dialog.setWindowTitle("Configurar Categoria")
+            dialog.setWindowTitle("Editar Categoria")
             dialog.resize(450, 150)
 
             layout = QtWidgets.QVBoxLayout(dialog)
@@ -1116,11 +1157,7 @@ class ConfigDialog(QtWidgets.QDialog):
             form_layout.addRow("Nome:", name_input)
 
             # Campo para ícone
-            icon_input = QtWidgets.QLineEdit()
-            # Se a categoria já tiver um ícone, carregamos
-            if isinstance(self.config["categories"].get(old_name), dict) and self.config["categories"][old_name].get("icon"):
-                icon_input.setText(self.config["categories"][old_name]["icon"])
-
+            icon_input = QtWidgets.QLineEdit(current_icon)
             icon_layout = QtWidgets.QHBoxLayout()
             icon_layout.addWidget(icon_input)
 
@@ -1151,45 +1188,45 @@ class ConfigDialog(QtWidgets.QDialog):
                         self, 'Aviso', 'O nome da categoria não pode estar vazio.')
                     return
 
-                if new_name != old_name and new_name in self.config["categories"]:
-                    QtWidgets.QMessageBox.warning(
-                        self, 'Aviso', 'Esta categoria já existe.')
-                    return
-
-                # Convertemos a estrutura de categorias para suportar ícones
+                # Verifica se já existe outra categoria com esse nome
                 if new_name != old_name:
-                    # Criamos a nova entrada com o novo nome e ícone
-                    if isinstance(self.config["categories"][old_name], list):
-                        # Se for lista (formato antigo), convertemos para dict
-                        self.config["categories"][new_name] = {
-                            "name": new_name,
-                            "icon": icon_path,
-                            "shortcuts": self.config["categories"][old_name]
-                        }
-                    else:
-                        # Se já for dict, mantemos a estrutura
-                        self.config["categories"][new_name] = self.config["categories"][old_name]
-                        self.config["categories"][new_name]["name"] = new_name
-                        self.config["categories"][new_name]["icon"] = icon_path
+                    for key in self.config["categories"]:
+                        if key == category_key:
+                            continue  # Ignora a categoria atual
 
-                    # Removemos a entrada antiga
-                    del self.config["categories"][old_name]
+                        cat_name = key
+                        if isinstance(self.config["categories"][key], dict) and "name" in self.config["categories"][key]:
+                            cat_name = self.config["categories"][key]["name"]
+
+                        if cat_name == new_name:
+                            QtWidgets.QMessageBox.warning(
+                                self, 'Aviso', 'Esta categoria já existe.')
+                            return
+
+                # Atualiza os dados da categoria
+                if isinstance(category_data, dict):
+                    # Se já está no formato novo, atualizamos os campos
+                    category_data["name"] = new_name
+                    category_data["icon"] = icon_path
                 else:
-                    # Apenas atualizamos o ícone
-                    if isinstance(self.config["categories"][old_name], list):
-                        # Convertemos para dict
-                        self.config["categories"][old_name] = {
-                            "name": old_name,
-                            "icon": icon_path,
-                            "shortcuts": self.config["categories"][old_name]
-                        }
-                    else:
-                        # Atualizamos o ícone
-                        self.config["categories"][old_name]["icon"] = icon_path
+                    # Se está no formato antigo, convertemos para o novo formato
+                    shortcuts = category_data
+                    self.config["categories"][category_key] = {
+                        "name": new_name,
+                        "icon": icon_path,
+                        "shortcuts": shortcuts
+                    }
+
+                # Se o nome mudou, atualizar também a chave do dicionário
+                if new_name != old_name and category_key == old_name:
+                    # Cria nova entrada com o novo nome
+                    self.config["categories"][new_name] = self.config["categories"][category_key]
+                    # Remove entrada antiga
+                    del self.config["categories"][category_key]
 
                 self.update_categories_list()
 
-                # Seleciona a categoria renomeada/atualizada
+                # Seleciona a categoria editada
                 items = self.categories_list.findItems(
                     new_name, QtCore.Qt.MatchExactly)
                 if items:
@@ -1199,17 +1236,26 @@ class ConfigDialog(QtWidgets.QDialog):
         """Remove uma categoria existente"""
         current_item = self.categories_list.currentItem()
         if current_item:
-            category = current_item.text()
+            category_name = current_item.text()
 
             reply = QtWidgets.QMessageBox.question(
                 self, 'Confirmação',
-                f"Deseja remover a categoria '{category}' e todos os seus atalhos?",
+                f"Deseja remover a categoria '{category_name}' e todos os seus atalhos?",
                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
                 QtWidgets.QMessageBox.No
             )
 
             if reply == QtWidgets.QMessageBox.Yes:
-                del self.config["categories"][category]
+                # Encontra a chave da categoria pelo nome exibido
+                for key in list(self.config["categories"].keys()):
+                    cat_name = key
+                    if isinstance(self.config["categories"][key], dict) and "name" in self.config["categories"][key]:
+                        cat_name = self.config["categories"][key]["name"]
+
+                    if cat_name == category_name:
+                        del self.config["categories"][key]
+                        break
+
                 self.update_categories_list()
                 self.shortcuts_list.clear()
 
@@ -1217,16 +1263,39 @@ class ConfigDialog(QtWidgets.QDialog):
         """Adiciona um atalho a uma categoria"""
         current_category = self.categories_list.currentItem()
         if current_category:
-            category = current_category.text()
+            category_name = current_category.text()
+
+            # Encontra a chave da categoria pelo nome exibido
+            category_key = None
+            for key in self.config["categories"]:
+                cat_name = key
+                if isinstance(self.config["categories"][key], dict) and "name" in self.config["categories"][key]:
+                    cat_name = self.config["categories"][key]["name"]
+
+                if cat_name == category_name:
+                    category_key = key
+                    break
+
+            if not category_key:
+                return
 
             dialog = ShortcutDialog(self)
             if dialog.exec_():
                 name, exe, args = dialog.get_values()
-                self.config["categories"][category].append({
+                new_shortcut = {
                     "name": name,
                     "exe": exe,
                     "args": args
-                })
+                }
+
+                # Adiciona o atalho à categoria (considerando o formato)
+                if isinstance(self.config["categories"][category_key], dict) and "shortcuts" in self.config["categories"][category_key]:
+                    self.config["categories"][category_key]["shortcuts"].append(
+                        new_shortcut)
+                else:
+                    # Formato antigo: a chave é o nome e o valor é a lista
+                    self.config["categories"][category_key].append(
+                        new_shortcut)
 
                 # Atualiza a lista de atalhos
                 self.shortcuts_list.addItem(name)
@@ -1237,8 +1306,28 @@ class ConfigDialog(QtWidgets.QDialog):
         current_shortcut = self.shortcuts_list.currentRow()
 
         if current_category and current_shortcut >= 0:
-            category = current_category.text()
-            shortcut = self.config["categories"][category][current_shortcut]
+            category_name = current_category.text()
+
+            # Encontra a chave da categoria pelo nome exibido
+            category_key = None
+            for key in self.config["categories"]:
+                cat_name = key
+                if isinstance(self.config["categories"][key], dict) and "name" in self.config["categories"][key]:
+                    cat_name = self.config["categories"][key]["name"]
+
+                if cat_name == category_name:
+                    category_key = key
+                    break
+
+            if not category_key:
+                return
+
+            # Obtém o atalho atual
+            shortcut = None
+            if isinstance(self.config["categories"][category_key], dict) and "shortcuts" in self.config["categories"][category_key]:
+                shortcut = self.config["categories"][category_key]["shortcuts"][current_shortcut]
+            else:
+                shortcut = self.config["categories"][category_key][current_shortcut]
 
             dialog = ShortcutDialog(
                 self,
@@ -1249,11 +1338,17 @@ class ConfigDialog(QtWidgets.QDialog):
 
             if dialog.exec_():
                 name, exe, args = dialog.get_values()
-                self.config["categories"][category][current_shortcut] = {
+                updated_shortcut = {
                     "name": name,
                     "exe": exe,
                     "args": args
                 }
+
+                # Atualiza o atalho na categoria
+                if isinstance(self.config["categories"][category_key], dict) and "shortcuts" in self.config["categories"][category_key]:
+                    self.config["categories"][category_key]["shortcuts"][current_shortcut] = updated_shortcut
+                else:
+                    self.config["categories"][category_key][current_shortcut] = updated_shortcut
 
                 # Atualiza o item na lista
                 self.shortcuts_list.item(current_shortcut).setText(name)
@@ -1264,7 +1359,21 @@ class ConfigDialog(QtWidgets.QDialog):
         current_shortcut = self.shortcuts_list.currentRow()
 
         if current_category and current_shortcut >= 0:
-            category = current_category.text()
+            category_name = current_category.text()
+
+            # Encontra a chave da categoria pelo nome exibido
+            category_key = None
+            for key in self.config["categories"]:
+                cat_name = key
+                if isinstance(self.config["categories"][key], dict) and "name" in self.config["categories"][key]:
+                    cat_name = self.config["categories"][key]["name"]
+
+                if cat_name == category_name:
+                    category_key = key
+                    break
+
+            if not category_key:
+                return
 
             reply = QtWidgets.QMessageBox.question(
                 self, 'Confirmação',
@@ -1274,7 +1383,12 @@ class ConfigDialog(QtWidgets.QDialog):
             )
 
             if reply == QtWidgets.QMessageBox.Yes:
-                del self.config["categories"][category][current_shortcut]
+                # Remove o atalho da categoria
+                if isinstance(self.config["categories"][category_key], dict) and "shortcuts" in self.config["categories"][category_key]:
+                    del self.config["categories"][category_key]["shortcuts"][current_shortcut]
+                else:
+                    del self.config["categories"][category_key][current_shortcut]
+
                 self.shortcuts_list.takeItem(current_shortcut)
 
     def is_in_startup(self):
