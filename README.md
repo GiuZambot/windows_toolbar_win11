@@ -89,7 +89,7 @@ pyinstaller --onefile --windowed floating_toolbar.py
 
 ## Licença
 
-[Especifique a licença do seu projeto]
+MIT
 
 ## Contribuições
 
