@@ -1,5 +1,7 @@
 # Floating Toolbar Launcher
 
+![image](https://github.com/user-attachments/assets/2240ef86-3ea9-4d9d-b76e-9d1c47655a54)
+
 ## Descrição
 
 Uma aplicação de toolbar flutuante personalizada para lançar rapidamente atalhos e projetos em diferentes aplicativos.
